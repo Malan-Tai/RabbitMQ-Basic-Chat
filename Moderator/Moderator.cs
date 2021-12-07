@@ -63,10 +63,11 @@ class Moderator
 
                 Thread.Sleep(delay * 1000);
 
+                var sendMessage = Encoding.UTF8.GetBytes("[" + target + "] " + sender + " : " + message);
                 downloadChannel.BasicPublish(exchange: "download",
                                             routingKey: target,
                                             basicProperties: null,
-                                            body: body);
+                                            body: sendMessage);
 
                 Console.WriteLine(" [x] Done");
 
