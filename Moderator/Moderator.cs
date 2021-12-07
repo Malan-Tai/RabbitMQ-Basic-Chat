@@ -30,7 +30,8 @@ class Moderator
 {
     static void Main(string[] args)
     {
-        
+        Console.Clear();
+
         // moderator delay
         int delay = 0;
         if (args.Length > 0)
