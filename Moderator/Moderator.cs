@@ -6,7 +6,7 @@ using System.Threading;
 using System.Runtime.InteropServices;
 
 
-struct Message
+struct SentMessage
 {
     [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 50)]
     public string sender;
@@ -14,6 +14,16 @@ struct Message
     public string target;
     [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 280)]
     public string message;
+
+    public bool privateMsg;
+}
+
+struct ReceivedMessage
+{
+    [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 400)]
+    public string message;
+
+    public ConsoleColor color;
 }
 
 class Moderator
@@ -54,7 +64,7 @@ class Moderator
             consumer.Received += (model, ea) =>
             {
                 var body = ea.Body.ToArray();
-                var messageStruct = fromBytes(body);
+                var messageStruct = FromBytes(body);
 
                 var sender = messageStruct.sender;
                 var target = messageStruct.target;
@@ -63,7 +73,31 @@ class Moderator
 
                 Thread.Sleep(delay * 1000);
 
-                var sendMessage = Encoding.UTF8.GetBytes("[" + target + "] " + sender + " : " + message);
+                ReceivedMessage response = new ReceivedMessage();
+
+                if (messageStruct.privateMsg)
+                {
+                    response.message = sender + " whispers : " + message;
+                    response.color = ConsoleColor.DarkCyan;
+                }
+                else if (messageStruct.message == "__connect_message")
+                {
+                    response.message = "** " + sender + " connected to room **";
+                    response.color = ConsoleColor.DarkGray;
+                }
+                else if (messageStruct.message == "__disconnect_message")
+                {
+                    response.message = "** " + sender + " disconnected from room **";
+                    response.color = ConsoleColor.DarkGray;
+                }
+                else
+                {
+                    response.message = "[" + target + "] " + sender + " : " + message;
+                    response.color = ConsoleColor.Gray;
+                }
+
+                var sendMessage = GetBytes(response);
+
                 downloadChannel.BasicPublish(exchange: "download",
                                             routingKey: target,
                                             basicProperties: null,
@@ -82,21 +116,32 @@ class Moderator
             Console.WriteLine(" Press [enter] to exit.");
             Console.ReadLine();
         }
+    }
 
-        Message fromBytes(byte[] arr) 
-        {
-            Message str = new Message();
+    private static byte[] GetBytes(ReceivedMessage message)
+    {
+        int size = Marshal.SizeOf(message);
+        byte[] arr = new byte[size];
 
-            int size = Marshal.SizeOf(str);
-            IntPtr ptr = Marshal.AllocHGlobal(size);
+        IntPtr ptr = Marshal.AllocHGlobal(size);
+        Marshal.StructureToPtr(message, ptr, true);
+        Marshal.Copy(ptr, arr, 0, size);
+        Marshal.FreeHGlobal(ptr);
+        return arr;
+    }
 
-            Marshal.Copy(arr, 0, ptr, size);
+    private static SentMessage FromBytes(byte[] arr)
+    {
+        SentMessage str = new SentMessage();
 
-            str = (Message)Marshal.PtrToStructure(ptr, str.GetType());
-            Marshal.FreeHGlobal(ptr);
+        int size = Marshal.SizeOf(str);
+        IntPtr ptr = Marshal.AllocHGlobal(size);
 
-            return str;
-        }
+        Marshal.Copy(arr, 0, ptr, size);
 
+        str = (SentMessage)Marshal.PtrToStructure(ptr, str.GetType());
+        Marshal.FreeHGlobal(ptr);
+
+        return str;
     }
 }

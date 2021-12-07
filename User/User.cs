@@ -5,6 +5,26 @@ using System.Text;
 using System.Runtime.InteropServices;
 using System.Linq;
 
+struct SentMessage
+{
+    [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 50)]
+    public string sender;
+    [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 50)]
+    public string target;
+    [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 280)]
+    public string message;
+
+    public bool privateMsg;
+}
+
+struct ReceivedMessage
+{
+    [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 400)]
+    public string message;
+
+    public ConsoleColor color;
+}
+
 class User
 {
     static string username;
@@ -20,9 +40,11 @@ class User
         {
             if (args.Length != 2)
             {
+                Console.ForegroundColor = ConsoleColor.Red;
                 Console.Error.WriteLine("Usage: {0} username roomname",
                                         Environment.GetCommandLineArgs()[0]);
                 Console.WriteLine(" Press [enter] to exit.");
+                Console.ForegroundColor = ConsoleColor.Gray;
                 Console.ReadLine();
                 Environment.ExitCode = 1;
                 return;
@@ -48,8 +70,11 @@ class User
             consumer.Received += (model, ea) =>
             {
                 var body = ea.Body.ToArray();
-                var receivedMessage = Encoding.UTF8.GetString(body);
-                Console.WriteLine(receivedMessage);
+                var messageStruct = FromBytes(body);
+
+                Console.ForegroundColor = messageStruct.color;
+                Console.WriteLine(messageStruct.message);
+                Console.ForegroundColor = ConsoleColor.Gray;
             };
             download.BasicConsume(queue: queueName,
                                 autoAck: true,          // auto ack because no delay for printing
@@ -62,7 +87,7 @@ class User
                                 autoDelete: false,
                                 arguments: null);
 
-            SendMessage("__connect_message", roomname, upload, "upload");
+            SendMessage("__connect_message", roomname, false, upload, "upload");
 
             string message;
             while ((message = Console.ReadLine()) != "/quit")
@@ -72,38 +97,51 @@ class User
                 switch (split[0])
                 {
                     case "/whisper":
-                        if (split.Length < 3) Console.WriteLine("Usage: /whisper targetName message");
-                        else SendMessage(string.Join(' ', split.Skip(2).ToArray()), split[1], upload, "upload");
+                        if (split.Length < 3)
+                        {
+                            Console.ForegroundColor = ConsoleColor.Red;
+                            Console.WriteLine("Usage: /whisper targetName message");
+                            Console.ForegroundColor = ConsoleColor.Gray;
+                        }
+                        else SendMessage(string.Join(' ', split.Skip(2).ToArray()), split[1], true, upload, "upload");
                         break;
                     case "/room":
-                        if (split.Length != 2) Console.WriteLine("Usage: /room roomname");
+                        if (split.Length != 2)
+                        {
+                            Console.ForegroundColor = ConsoleColor.Red;
+                            Console.WriteLine("Usage: /room roomname");
+                            Console.ForegroundColor = ConsoleColor.Gray;
+                        }
                         else
                         {
-                            SendMessage("__disconnect_message", roomname, upload, "upload");
+                            download.QueueUnbind(queueName, "download", roomname);
+                            SendMessage("__disconnect_message", roomname, false, upload, "upload");
                             roomname = split[1];
-                            SendMessage("__connect_message", roomname, upload, "upload");
+                            SendMessage("__connect_message", roomname, false, upload, "upload");
+                            download.QueueBind(queueName, "download", roomname);
                         }
                         break;
                     default:
-                        SendMessage(message, roomname, upload, "upload");
+                        SendMessage(message, roomname, false, upload, "upload");
                         break;
                 }
             }
 
-            SendMessage("__disconnect_message", roomname, upload, "upload");
+            SendMessage("__disconnect_message", roomname, false, upload, "upload");
         }
 
         Console.WriteLine(" Press [enter] to exit.");
         Console.ReadLine();
     }
 
-    private static void SendMessage(string message, string target, IModel channel, string channelName)
+    private static void SendMessage(string message, string target, bool privateMsg, IModel channel, string channelName)
     {
-        Message msgStruct = new Message
+        SentMessage msgStruct = new SentMessage
         {
             sender = username,
             target = target,
-            message = message
+            message = message,
+            privateMsg = privateMsg
         };
 
         var body = GetBytes(msgStruct);
@@ -114,7 +152,7 @@ class User
                             body: body);
     }
 
-    private static byte[] GetBytes(Message message)
+    private static byte[] GetBytes(SentMessage message)
     {
         int size = Marshal.SizeOf(message);
         byte[] arr = new byte[size];
@@ -124,6 +162,21 @@ class User
         Marshal.Copy(ptr, arr, 0, size);
         Marshal.FreeHGlobal(ptr);
         return arr;
+    }
+
+    private static ReceivedMessage FromBytes(byte[] arr)
+    {
+        ReceivedMessage str = new ReceivedMessage();
+
+        int size = Marshal.SizeOf(str);
+        IntPtr ptr = Marshal.AllocHGlobal(size);
+
+        Marshal.Copy(arr, 0, ptr, size);
+
+        str = (ReceivedMessage)Marshal.PtrToStructure(ptr, str.GetType());
+        Marshal.FreeHGlobal(ptr);
+
+        return str;
     }
 }
 
