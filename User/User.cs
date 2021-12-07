@@ -1,12 +1,10 @@
 ﻿using System;
 
-namespace Moderator
-{
-    class Program
+    class User
     {
         static void Main(string[] args)
         {
             Console.WriteLine("Hello World!");
         }
     }
-}
+
