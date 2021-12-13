@@ -36,14 +36,16 @@ class User
         Console.Clear();
 
         var factory = new ConnectionFactory() { HostName = "localhost" };
+        if (args.Length >= 3) factory.HostName = args[2];
+
         using(var connection = factory.CreateConnection())
         using(var download = connection.CreateModel())
         using(var upload = connection.CreateModel())
         {
-            if (args.Length != 2)
+            if (args.Length < 2 || args.Length > 3)
             {
                 Console.ForegroundColor = ConsoleColor.Red;
-                Console.Error.WriteLine("Usage: {0} username roomname",
+                Console.Error.WriteLine("Usage: {0} username roomname [ipaddress]",
                                         Environment.GetCommandLineArgs()[0]);
                 Console.WriteLine(" Press [enter] to exit.");
                 Console.ForegroundColor = ConsoleColor.Gray;
