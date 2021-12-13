@@ -29,7 +29,6 @@ class User
 {
     static string username;
     static string roomname;
-    static bool canWrite = true;
 
     // run username roomname
     static void Main(string[] args)
@@ -78,7 +77,6 @@ class User
                 Console.ForegroundColor = messageStruct.color;
                 Console.WriteLine(messageStruct.message);
                 Console.ForegroundColor = ConsoleColor.Gray;
-                canWrite = true;
             };
             download.BasicConsume(queue: queueName,
                                 autoAck: true,          // auto ack because no delay for printing
@@ -94,10 +92,8 @@ class User
             SendMessage("__connect_message", roomname, false, upload, "upload");
 
             string message = "";
-            while (!canWrite || (message = Console.ReadLine()) != "/quit")
+            while ((message = Console.ReadLine()) != "/quit")
             {
-                if (!canWrite) continue;
-
                 var split = message.Split(' ');
 
                 switch (split[0])
@@ -128,10 +124,6 @@ class User
                         }
                         break;
                     default:
-                        canWrite = false;
-                        Console.SetCursorPosition(Console.CursorLeft, Console.CursorTop - 1);
-                        Console.SetCursorPosition(Console.CursorLeft, Console.CursorTop);
-
                         SendMessage(message, roomname, false, upload, "upload");
                         break;
                 }
