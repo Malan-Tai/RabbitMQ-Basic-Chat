@@ -4,6 +4,10 @@ using RabbitMQ.Client.Events;
 using System.Text;
 using System.Threading;
 using System.Runtime.InteropServices;
+using System.Collections.Generic;
+
+
+
 
 
 struct SentMessage
@@ -28,6 +32,11 @@ struct ReceivedMessage
 
 class Moderator
 {
+    static private HashSet<string> insultes = new HashSet<string>() { "belitre", "paltoquet", "margoulin", "butor", "cuistre", "faquin", "foutriquet",
+        "gougnafier", "gourgandine", "malotru", "maraud", "bachi-bouzouk","bachibouzouk","bachi - bouzouk","belitres", "paltoquets",
+        "margoulins", "butors", "cuistres", "faquins", "foutriquets", "gougnafiers", "gourgandines", "malotrus", "marauds", "bachi-bouzouks",
+        "bachibouzouks","bachi", "bouzouks"};
+
     static void Main(string[] args)
     {
         Console.Clear();
@@ -70,6 +79,18 @@ class Moderator
                 var sender = messageStruct.sender;
                 var target = messageStruct.target;
                 var message = messageStruct.message;
+                var parseMessage = message.Split(' ');
+                message = "";
+                for(int i = 0;i<parseMessage.Length;i++)
+                {
+                    if (insultes.Contains(parseMessage[i]))
+                    {
+                        parseMessage[i] = new string('*', parseMessage[i].Length);
+                    }
+
+                    message += parseMessage[i] + ' ';
+                }
+                
                 Console.WriteLine(" [x] Received {0} from {1} to {2}", message, sender, target);
 
                 Thread.Sleep(delay * 1000);
